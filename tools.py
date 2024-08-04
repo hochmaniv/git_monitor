@@ -4,6 +4,7 @@ from itertools import product
 
 
 WANTED_EVENTS = {'WatchEvent', 'PullRequestEvent', 'IssuesEvent'}
+EVENTS_LIMIT = 500
 
 
 def get_repository_events(profile, repo):
@@ -87,14 +88,12 @@ def average(times):
     return sum(times) / len(times)
 
 
-if __name__ == "__main__":
+def get_events(profile, repo):
+    events = get_repository_events(profile, repo)
 
-    events = get_repository_events('freeCodeCamp', 'freeCodeCamp')
-
-    if events:
+    if events:        
         events = filter_events(events)
-        print("total:", len(events))
-        print("last seven days:", len(filter_events_last_7_days(events)))
-        print("last 60 minutes:", len(filter_events_last_minutes(events, 60)))
-        print("event types: ", group_events(events))
-        print("times between", times_between_events(events))
+        if len(filter_events_last_7_days(events)) > EVENTS_LIMIT:
+            events = events[:EVENTS_LIMIT]
+    
+    return events
