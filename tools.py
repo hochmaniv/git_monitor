@@ -1,25 +1,26 @@
 import requests
 from datetime import datetime, timedelta
+from itertools import product
 
 
 WANTED_EVENTS = {'WatchEvent', 'PullRequestEvent', 'IssuesEvent'}
 
 
-def get_repository_events():
-    url = f"https://api.github.com/repos/sindresorhus/awesome/events"
+def get_repository_events(profile, repo):
+    url = f"https://api.github.com/repos/{profile}/{repo}/events"
     headers = {
         'Accept': 'application/vnd.github.v3+json',
         'User-Agent': 'requests'  # GitHub recommends setting a User-Agent header
     }
-
     all_events = []
+
     while url:
         response = requests.get(url, headers=headers)
         if response.status_code == 200:
             events = response.json()
             all_events.extend(events)
             
-            # Check if there's a next page
+            # Check if there's a next page of events
             if 'next' in response.links:
                 url = response.links['next']['url']
             else:
@@ -50,39 +51,50 @@ def filter_events_last_7_days(events):
 
 
 def group_events(events):
-    event_types = {
-        'WatchEvent': 0,
-        'PullRequestEvent': 0,
-        'IssuesEvent': 0
-    }
+    event_types = {e: 0 for e in WANTED_EVENTS}
 
-    # 'WatchEvent', 'PullRequestEvent', 'IssuesEvent'
     for event in events:
-        event_type = event.get('type')
-        if event_type in event_types:
-            event_types[event_type] += 1
+        event_types[event.get('type')] += 1
     
     return event_types
 
 
-def print_events(events):
-    for event in events:
-        event_type = event.get('type')
-        created_at = event.get('created_at')
-        repo_name = event.get('repo', {}).get('name')
-        
-        print(f"Repo: {repo_name}")
-        print(f"Event: {event_type}")
-        print(f"Created at: {created_at}")
-        print("-" * 40)
+def times_between_events(events):
+    pairs = list(product(WANTED_EVENTS, repeat=2))
+    result = {pair: [] for pair in pairs}
+
+    if len(events) < 2:
+        print("Repository XY does not have enough events (less than 2)")
+        return result
+    
+    for i in range(len(events)-2):
+        event1, event2 = events[i], events[i+1]
+        event_types = (event1.get('type'), event2.get('type'))
+        event1_created_at = datetime.strptime(event1['created_at'], '%Y-%m-%dT%H:%M:%SZ')
+        event2_created_at = datetime.strptime(event2['created_at'], '%Y-%m-%dT%H:%M:%SZ')
+        time_difference = (event1_created_at - event2_created_at).total_seconds()
+        result[event_types].append(time_difference)
+
+    for key, value in result.items():
+        result[key] = average(value)
+
+    return result
+
+
+def average(times):
+    if not times:
+        return None
+    return sum(times) / len(times)
+
 
 if __name__ == "__main__":
 
-    events = get_repository_events()
+    events = get_repository_events('freeCodeCamp', 'freeCodeCamp')
 
     if events:
-        #print_events(filter_events(events))
+        events = filter_events(events)
         print("total:", len(events))
         print("last seven days:", len(filter_events_last_7_days(events)))
         print("last 60 minutes:", len(filter_events_last_minutes(events, 60)))
-        print("event types: ", group_events(filter_events(events)))
+        print("event types: ", group_events(events))
+        print("times between", times_between_events(events))
