@@ -1,7 +1,8 @@
 import requests
-import json
 from datetime import datetime, timedelta
 
+
+WANTED_EVENTS = {'WatchEvent', 'PullRequestEvent', 'IssuesEvent'}
 
 
 def get_repository_events():
@@ -29,8 +30,10 @@ def get_repository_events():
 
     return all_events
 
+
 def filter_events(events):
-    return [event for event in events if event.get('type') in {'WatchEvent', 'PullRequestEvent', 'IssuesEvent'}]
+    return [event for event in events if event.get('type') in WANTED_EVENTS]
+
 
 def filter_events_last_minutes(events, minutes):
     time_threshold = datetime.utcnow() - timedelta(minutes=minutes)
@@ -44,6 +47,22 @@ def filter_events_last_minutes(events, minutes):
 
 def filter_events_last_7_days(events):
     return filter_events_last_minutes(events, 1080) # 1080 minutes in 7 days 
+
+
+def group_events(events):
+    event_types = {
+        'WatchEvent': 0,
+        'PullRequestEvent': 0,
+        'IssuesEvent': 0
+    }
+
+    # 'WatchEvent', 'PullRequestEvent', 'IssuesEvent'
+    for event in events:
+        event_type = event.get('type')
+        if event_type in event_types:
+            event_types[event_type] += 1
+    
+    return event_types
 
 
 def print_events(events):
@@ -66,3 +85,4 @@ if __name__ == "__main__":
         print("total:", len(events))
         print("last seven days:", len(filter_events_last_7_days(events)))
         print("last 60 minutes:", len(filter_events_last_minutes(events, 60)))
+        print("event types: ", group_events(filter_events(events)))
