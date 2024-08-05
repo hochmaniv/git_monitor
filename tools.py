@@ -5,6 +5,53 @@ from itertools import product
 
 WANTED_EVENTS = {'WatchEvent', 'PullRequestEvent', 'IssuesEvent'}
 EVENTS_LIMIT = 500
+REPOSITORIES_LIMIT = 5
+
+
+class Repository:
+    def __init__(self, profile_name, repo_name):
+        self.profile_name = profile_name
+        self.repo_name = repo_name
+    
+    def get_profile_name(self):
+        return self.profile_name
+    
+    def get_repo_name(self):
+        return self.repo_name
+    
+    def get_info(self):
+        return self.profile_name + '/' + self.repo_name
+    
+    def __eq__(self, other):
+        if not isinstance(other, Repository):
+            return False
+        return self.profile_name == other.get_profile_name() and self.repo_name == other.get_repo_name()
+        
+    
+
+class RepositoryManager:
+    def __init__(self):
+        self.repositories = []
+
+    def add_repository(self, repo):
+        if len(self.repositories) >= REPOSITORIES_LIMIT:
+            return False, "Maximum number of tracked repositories reached"
+        
+        for repository in self.repositories:
+            if repository.__eq__(repo):
+                return False, "Repository" + repository.get_info() + "is already being tracked"
+
+        self.repositories.append(repo)
+        return True, "Repository " + repo.get_info() + " added successfully"
+
+    def delete_repository(self, repo):
+        if repo in self.repositories:
+            self.repositories.remove(repo)
+            return True, "Repository " + repo.get_info() + " deleted successfully"
+        return False, "Repository" + repo.get_info() + " not found"
+
+    def get_repositories(self):
+        return self.repositories
 
 
 def get_repository_events(profile, repo):
@@ -65,6 +112,7 @@ def times_between_events(events):
     result = {pair: [] for pair in pairs}
 
     if len(events) < 2:
+        # TODO
         print("Repository XY does not have enough events (less than 2)")
         return result
     
