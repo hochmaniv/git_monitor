@@ -38,16 +38,17 @@ class RepositoryManager:
             return False, "Maximum number of tracked repositories reached"
         
         for repository in self.repositories:
-            if repository.__eq__(repo):
-                return False, "Repository" + repository.get_info() + "is already being tracked"
+            if repo.__eq__(repository):
+                return False, "Repository" + repository.get_info() + " is already being tracked"
 
         self.repositories.append(repo)
         return True, "Repository " + repo.get_info() + " added successfully"
 
     def delete_repository(self, repo):
-        if repo in self.repositories:
-            self.repositories.remove(repo)
-            return True, "Repository " + repo.get_info() + " deleted successfully"
+        for repository in self.repositories:
+            if repository.__eq__(repo):
+                self.repositories.remove(repository)
+                return True, "Repository " + repo.get_info() + " deleted successfully"
         return False, "Repository" + repo.get_info() + " not found"
 
     def get_repositories(self):

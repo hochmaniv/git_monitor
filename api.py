@@ -14,29 +14,32 @@ def index():
 
 
 # Endpoint to add new repository to be tracked
-@app.route('/add-repository/<profile_name>/<repo>', methods=['GET'])
-def add_repository(profile_name, repo):
+@app.route('/add-repository/<profile_name>/<repository_name>', methods=['POST'])
+def add_repository(profile_name, repository_name):
     # Return the received strings as a JSON response
-    repository = Repository(profile_name, repo)
+    repository = Repository(profile_name, repository_name)
     success, message = repositoryManager.add_repository(repository)
     status_code = 200 if success else 400
     return jsonify({"message": message}), status_code
 
 
 # Endpoint to show all currently tracked repositories
-@app.route('/get-repositores', methods=['GET'])
+@app.route('/get-repositories', methods=['GET'])
 def get_repositories():
     tracked_repos = []
     for repository in repositoryManager.get_repositories():
         tracked_repos.append(repository.get_info())
-    return jsonify({"tracked_repositories": tracked_repos})
+    return jsonify({"tracked_repositories": tracked_repos}), 200
 
 
-if __name__ == '__main__':
-    app.run(debug=True)
+# Endpoint to delete a tracked repository
+@app.route('/delete-repository/<profile_name>/<repository_name>', methods=['DELETE'])
+def delete_repository(profile_name, repository_name):
+    repository = Repository(profile_name, repository_name)
+    success, message = repositoryManager.delete_repository(repository)
+    status_code = 200 if success else 400
+    return jsonify({"message": message}), status_code
 
-
-# endpoint to delete a repo
 
 # index to show info
 
