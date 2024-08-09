@@ -16,7 +16,6 @@ def index():
 # Endpoint to add new repository to be tracked
 @app.route('/add-repository/<profile_name>/<repository_name>', methods=['POST'])
 def add_repository(profile_name, repository_name):
-    # Return the received strings as a JSON response
     repository = Repository(profile_name, repository_name)
     success, message = repositoryManager.add_repository(repository)
     status_code = 200 if success else 400
@@ -40,6 +39,17 @@ def delete_repository(profile_name, repository_name):
     status_code = 200 if success else 400
     return jsonify({"message": message}), status_code
 
+
+@app.route('/get-event-times', methods=['GET'])
+def get_event_times():
+    result = []
+    for repository in repositoryManager.get_repositories():
+        print(repository.get_profile_name(), repository.get_repo_name())
+        repo_events = get_events(repository.get_profile_name(), repository.get_repo_name())
+        event_times = times_between_events(repo_events)
+        result.append((repository.get_info(), event_times))
+    # return jsonify({"average_times_between_events": result}), 200
+    return result
 
 # index to show info
 

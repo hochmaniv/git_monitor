@@ -55,6 +55,48 @@ class RepositoryManager:
         return self.repositories
 
 
+def fetch_all_events(repo_owner, repo_name, token=None):
+    # GitHub API URL for repository events
+    url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/events"
+    
+    headers = {
+        'Accept': 'application/vnd.github.v3+json',
+    }
+    
+    if token:
+        headers['Authorization'] = f'token {token}'
+
+    events = []
+    
+    while url:
+        response = requests.get(url, headers=headers)
+        
+        # Check if the request was successful
+        if response.status_code != 200:
+            print(f"Failed to fetch events: {response.status_code}")
+            print(response.json())  # Print the error message
+            break
+        
+        # Append the fetched events to the list
+        events.extend(response.json())
+        
+        # Check for the 'Link' header to get the next page URL
+        if 'Link' in response.headers:
+            links = response.headers['Link']
+            # Parsing the link header to find the next URL
+            next_link = None
+            for link in links.split(','):
+                if 'rel="next"' in link:
+                    next_link = link.split(';')[0].strip('<> ')
+                    break
+            url = next_link
+        else:
+            url = None  # No more pages left
+
+    print(f'fetched {len(events)} events!!!!!!!!!!!!!!!!!!!!!!!!')
+    return events
+
+
 def get_repository_events(profile, repo):
     url = f"https://api.github.com/repos/{profile}/{repo}/events"
     headers = {
@@ -109,13 +151,13 @@ def group_events(events):
 
 
 def times_between_events(events):
-    pairs = list(product(WANTED_EVENTS, repeat=2))
-    result = {pair: [] for pair in pairs}
+    pairs = list(product(WANTED_EVENTS, repeat=2)) # get all possible combinations of events
+    result = {str(pair): [] for pair in pairs}
 
     if len(events) < 2:
         # TODO
         print("Repository XY does not have enough events (less than 2)")
-        return result
+        return None
     
     for i in range(len(events)-2):
         event1, event2 = events[i], events[i+1]
@@ -123,7 +165,7 @@ def times_between_events(events):
         event1_created_at = datetime.strptime(event1['created_at'], '%Y-%m-%dT%H:%M:%SZ')
         event2_created_at = datetime.strptime(event2['created_at'], '%Y-%m-%dT%H:%M:%SZ')
         time_difference = (event1_created_at - event2_created_at).total_seconds()
-        result[event_types].append(time_difference)
+        result[str(event_types)].append(time_difference)
 
     for key, value in result.items():
         result[key] = average(value)
@@ -138,7 +180,7 @@ def average(times):
 
 
 def get_events(profile, repo):
-    events = get_repository_events(profile, repo)
+    events = fetch_all_events(profile, repo)
 
     if events:        
         events = filter_events(events)
