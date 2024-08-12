@@ -1,37 +1,17 @@
 import requests
 from datetime import datetime, timedelta
 from itertools import product
-
+from statistics import mean
 
 WANTED_EVENTS = {'WatchEvent', 'PullRequestEvent', 'IssuesEvent'}
 EVENTS_LIMIT = 500
 REPOSITORIES_LIMIT = 5
 
 
-class Repository:
-    def __init__(self, profile_name, repo_name):
-        self.profile_name = profile_name
-        self.repo_name = repo_name
-    
-    def get_profile_name(self):
-        return self.profile_name
-    
-    def get_repo_name(self):
-        return self.repo_name
-    
-    def get_info(self):
-        return self.profile_name + '/' + self.repo_name
-    
-    def __eq__(self, other):
-        if not isinstance(other, Repository):
-            return False
-        return self.profile_name == other.get_profile_name() and self.repo_name == other.get_repo_name()
-        
-    
-
 class RepositoryManager:
     def __init__(self):
         self.repositories = []
+        self.token = None
 
     def add_repository(self, repo):
         if len(self.repositories) >= REPOSITORIES_LIMIT:
@@ -53,138 +33,129 @@ class RepositoryManager:
 
     def get_repositories(self):
         return self.repositories
-
-
-def fetch_all_events(repo_owner, repo_name, token=None):
-    # GitHub API URL for repository events
-    url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/events"
     
-    headers = {
-        'Accept': 'application/vnd.github.v3+json',
-    }
+    def set_token(self, token):
+        old_token = self.token
+        self.token = token
+        if self.get_token():
+            if old_token != token:
+                return True, "New token set successfully"
+            else:
+                return True, "This token is already being used"
+        return False, "No token set"
     
-    if token:
-        headers['Authorization'] = f'token {token}'
+    def get_token(self):
+        return self.token
 
-    events = []
+
+class Repository:
+    def __init__(self, profile_name, repo_name):
+        self.profile_name = profile_name
+        self.repo_name = repo_name
+        self.events = self.__fetch_events__()
     
-    while url:
-        response = requests.get(url, headers=headers)
+    def get_profile_name(self):
+        return self.profile_name
+    
+    def get_repo_name(self):
+        return self.repo_name
+    
+    def get_info(self):
+        return self.profile_name + '/' + self.repo_name
+    
+    def __eq__(self, other):
+        if not isinstance(other, Repository):
+            return False
+        return self.profile_name == other.get_profile_name() and self.repo_name == other.get_repo_name()
+    
+    def __fetch_events__(self, token=None):
+        url = f"https://api.github.com/repos/{self.profile_name}/{self.repo_name}/events"
         
-        # Check if the request was successful
-        if response.status_code != 200:
-            print(f"Failed to fetch events: {response.status_code}")
-            print(response.json())  # Print the error message
-            break
+        headers = {'Accept': 'application/vnd.github.v3+json'}
+        events = []
+
+        if token:
+            headers['Authorization'] = f'Bearer {token}'
         
-        # Append the fetched events to the list
-        events.extend(response.json())
-        
-        # Check for the 'Link' header to get the next page URL
-        if 'Link' in response.headers:
-            links = response.headers['Link']
-            # Parsing the link header to find the next URL
-            next_link = None
-            for link in links.split(','):
-                if 'rel="next"' in link:
-                    next_link = link.split(';')[0].strip('<> ')
-                    break
-            url = next_link
-        else:
-            url = None  # No more pages left
-
-    print(f'fetched {len(events)} events!!!!!!!!!!!!!!!!!!!!!!!!')
-    return events
-
-
-def get_repository_events(profile, repo):
-    url = f"https://api.github.com/repos/{profile}/{repo}/events"
-    headers = {
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'requests'  # GitHub recommends setting a User-Agent header
-    }
-    all_events = []
-
-    while url:
-        response = requests.get(url, headers=headers)
-        if response.status_code == 200:
-            events = response.json()
-            all_events.extend(events)
+        reached_repo_limit = False
+        while url:
+            response = requests.get(url, headers=headers)
+            if response.status_code != 200:
+                print(f"Failed to fetch events: {response.status_code}")
+                print(response.json()) 
+                break
             
-            # Check if there's a next page of events
-            if 'next' in response.links:
-                url = response.links['next']['url']
+            filtered_fetched_page = self.__filter_events__(list(response.json()))
+            filtered_fetched_page = self.__filter_events_last_7_days__(filtered_fetched_page)
+            
+            for event in filtered_fetched_page:
+                if len(events) >= EVENTS_LIMIT:
+                    reached_repo_limit = True
+                    break
+                events.append(event)
+
+            if reached_repo_limit:
+                break
+
+            # Check for the 'Link' header to get the next page URL as explained at
+            # https://docs.github.com/en/rest/using-the-rest-api/using-pagination-in-the-rest-api?apiVersion=2022-11-28
+            if 'Link' in response.headers:
+                links = response.headers['Link']
+                next_link = None
+                for link in links.split(','):
+                    if 'rel="next"' in link:
+                        next_link = link.split(';')[0].strip('<> ')
+                        break
+                url = next_link
             else:
                 url = None
-        else:
-            print(f"Failed to fetch events: {response.status_code}")
-            break
 
-    return all_events
-
-
-def filter_events(events):
-    return [event for event in events if event.get('type') in WANTED_EVENTS]
-
-
-def filter_events_last_minutes(events, minutes):
-    time_threshold = datetime.utcnow() - timedelta(minutes=minutes)
-    filtered_events = []
-    for event in events:
-        created_at = datetime.strptime(event['created_at'], "%Y-%m-%dT%H:%M:%SZ")
-        if created_at > time_threshold:
-            filtered_events.append(event)
-    return filtered_events
-
-
-def filter_events_last_7_days(events):
-    return filter_events_last_minutes(events, 1080) # 1080 minutes in 7 days 
-
-
-def group_events(events):
-    event_types = {e: 0 for e in WANTED_EVENTS}
-
-    for event in events:
-        event_types[event.get('type')] += 1
+        #print(f'FETCHED {len(events)} EVENTS FOR {self.get_info()}')
+        return events
     
-    return event_types
-
-
-def times_between_events(events):
-    pairs = list(product(WANTED_EVENTS, repeat=2)) # get all possible combinations of events
-    result = {str(pair): [] for pair in pairs}
-
-    if len(events) < 2:
-        # TODO
-        print("Repository XY does not have enough events (less than 2)")
-        return None
+    def __filter_events__(self, events):
+        return [event for event in events if event.get('type') in WANTED_EVENTS]
     
-    for i in range(len(events)-2):
-        event1, event2 = events[i], events[i+1]
-        event_types = (event1.get('type'), event2.get('type'))
-        event1_created_at = datetime.strptime(event1['created_at'], '%Y-%m-%dT%H:%M:%SZ')
-        event2_created_at = datetime.strptime(event2['created_at'], '%Y-%m-%dT%H:%M:%SZ')
-        time_difference = (event1_created_at - event2_created_at).total_seconds()
-        result[str(event_types)].append(time_difference)
+    def __filter_events_last_minutes__(self, minutes, events):
+        time_threshold = datetime.now() - timedelta(minutes=minutes)
+        filtered_events = []
 
-    for key, value in result.items():
-        result[key] = average(value)
+        for event in events:
+            created_at = datetime.strptime(event['created_at'], "%Y-%m-%dT%H:%M:%SZ")
+            if created_at > time_threshold:
+                filtered_events.append(event)
+        return filtered_events
 
-    return result
-
-
-def average(times):
-    if not times:
-        return None
-    return sum(times) / len(times)
-
-
-def get_events(profile, repo):
-    events = fetch_all_events(profile, repo)
-
-    if events:        
-        events = filter_events(events)
-        if len(filter_events_last_7_days(events)) > EVENTS_LIMIT:
-            events = events[:EVENTS_LIMIT]
+    def __filter_events_last_7_days__(self, events):
+        return self.__filter_events_last_minutes__(1080, events) # 1080 minutes in 7 days 
     
-    return events
+    def group_events(self, minutes):
+        event_types = {event: 0 for event in WANTED_EVENTS}
+
+        events = self.__filter_events_last_minutes__(minutes, self.events)
+        for event in events:
+            event_types[event.get('type')] += 1
+        
+        return event_types
+    
+    def times_between_events(self):
+        pairs = list(product(WANTED_EVENTS, repeat=2)) # get all possible combinations of events
+        result = {str(pair): [] for pair in pairs}
+
+        events = self.events
+        if len(events) < 2:
+            print(f'Failed to fetch events for {self.get_info()}')
+            return None
+        
+        for i in range(len(events)-2):
+            event1, event2 = events[i], events[i+1]
+            event_types = (event1.get('type'), event2.get('type'))
+            event1_created_at = datetime.strptime(event1['created_at'], '%Y-%m-%dT%H:%M:%SZ')
+            event2_created_at = datetime.strptime(event2['created_at'], '%Y-%m-%dT%H:%M:%SZ')
+            time_difference = (event1_created_at - event2_created_at).total_seconds()
+            result[str(event_types)].append(time_difference)
+
+        for key, value in result.items():
+            result[key] = mean(value) if value else None
+
+        return result
