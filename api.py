@@ -57,7 +57,7 @@ def get_events_by_offset(minutes):
     result = []
     for repository in repositoryManager.get_repositories():
         result.append((repository.get_info(), repository.group_events(minutes)))
-    return jsonify({f'events grouped by event type, repo for the last {minutes} minutes': result}), 200
+    return jsonify({f'events grouped by event type and repository for the last {minutes} minutes': result}), 200
 
 
 # Endpoint to send GitHub access token in a header
