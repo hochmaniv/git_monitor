@@ -19,7 +19,7 @@ Make a GET request to get a list of tracked repositories <br/>
 Make a DELETE request to stop tracking a repository <br/>
 ### Data processing endpoints:
 - /get-event-times <br/>
-Make a GET request to get the average time between consecutive events, separately for each combination of event type and repository name <br/>
+Make a GET request to get the average time between consecutive events in seconds, separately for each combination of event type and repository name <br/>
 - /get-events-by-offset/<minutes> <br/>
 Make a GET request to get the total number of events grouped by the event type and repository name for a given offset. Offset is set in minutes <br/>
 ### Visualization endpoint:
