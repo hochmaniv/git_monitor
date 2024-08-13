@@ -37,7 +37,7 @@ class RepositoryManager:
     def set_token(self, token):
         old_token = self.token
         self.token = token
-        if self.get_token():
+        if self.token:
             if old_token != token:
                 return True, "New token set successfully"
             else:
@@ -46,13 +46,12 @@ class RepositoryManager:
     
     def get_token(self):
         return self.token
-
+    
 
 class Repository:
     def __init__(self, profile_name, repo_name):
         self.profile_name = profile_name
         self.repo_name = repo_name
-        self.events = self.__fetch_events__()
     
     def get_profile_name(self):
         return self.profile_name
@@ -68,14 +67,14 @@ class Repository:
             return False
         return self.profile_name == other.get_profile_name() and self.repo_name == other.get_repo_name()
     
-    def __fetch_events__(self, token=None):
+    def __fetch_events(self, token=None):
         url = f"https://api.github.com/repos/{self.profile_name}/{self.repo_name}/events"
         
         headers = {'Accept': 'application/vnd.github.v3+json'}
         events = []
 
         if token:
-            headers['Authorization'] = f'Bearer {token}'
+            headers['Authorization'] = f'token {token}'
         
         reached_repo_limit = False
         while url:
@@ -83,10 +82,10 @@ class Repository:
             if response.status_code != 200:
                 print(f"Failed to fetch events: {response.status_code}")
                 print(response.json()) 
-                break
+                response.raise_for_status()
             
-            filtered_fetched_page = self.__filter_events__(list(response.json()))
-            filtered_fetched_page = self.__filter_events_last_7_days__(filtered_fetched_page)
+            filtered_fetched_page = self.__filter_events(list(response.json()))
+            filtered_fetched_page = self.__filter_events_last_7_days(filtered_fetched_page)
             
             for event in filtered_fetched_page:
                 if len(events) >= EVENTS_LIMIT:
@@ -110,39 +109,40 @@ class Repository:
             else:
                 url = None
 
-        #print(f'FETCHED {len(events)} EVENTS FOR {self.get_info()}')
         return events
     
-    def __filter_events__(self, events):
+    def __filter_events(self, events):
         return [event for event in events if event.get('type') in WANTED_EVENTS]
     
-    def __filter_events_last_minutes__(self, minutes, events):
-        time_threshold = datetime.now() - timedelta(minutes=minutes)
+    def __filter_events_last_minutes(self, minutes, events):
+        time_threshold = datetime.now() - timedelta(minutes=int(minutes))
         filtered_events = []
 
         for event in events:
             created_at = datetime.strptime(event['created_at'], "%Y-%m-%dT%H:%M:%SZ")
             if created_at > time_threshold:
                 filtered_events.append(event)
+
         return filtered_events
 
-    def __filter_events_last_7_days__(self, events):
-        return self.__filter_events_last_minutes__(1080, events) # 1080 minutes in 7 days 
+    def __filter_events_last_7_days(self, events):
+        return self.__filter_events_last_minutes(1080, events) # 1080 minutes in 7 days 
     
-    def group_events(self, minutes):
+    def group_events(self, minutes, token):
+        minutes = int(minutes)
         event_types = {event: 0 for event in WANTED_EVENTS}
 
-        events = self.__filter_events_last_minutes__(minutes, self.events)
+        events = self.__filter_events_last_minutes(minutes, self.__fetch_events(token))
         for event in events:
             event_types[event.get('type')] += 1
         
         return event_types
     
-    def times_between_events(self):
+    def times_between_events(self, token):
         pairs = list(product(WANTED_EVENTS, repeat=2)) # get all possible combinations of events
         result = {str(pair): [] for pair in pairs}
 
-        events = self.events
+        events = self.__fetch_events(token)
         if len(events) < 2:
             print(f'Failed to fetch events for {self.get_info()}')
             return None
