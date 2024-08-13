@@ -29,7 +29,7 @@ class RepositoryManager:
             if repository.__eq__(repo):
                 self.repositories.remove(repository)
                 return True, "Repository " + repo.get_info() + " deleted successfully"
-        return False, "Repository" + repo.get_info() + " not found"
+        return False, "Repository " + repo.get_info() + " not found"
 
     def get_repositories(self):
         return self.repositories
