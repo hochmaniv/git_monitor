@@ -1,9 +1,8 @@
 ## Prerequisites
-Python3 (ideally 3.9.2rc1 or newer)
-pip 
+Python3 (ideally 3.9.2rc1 or newer) <br/> pip 
 
 ## Intro
-Use `pip install -r requirements`to install all necessary libraries.
+Use `pip install -r requirements` to install all necessary libraries.
 Start the app by running `python ./main.py`
 
 This application runs as Flask application, by default on http://127.0.0.1:5000.
@@ -12,23 +11,23 @@ You can use any tool you would like for the REST API requests. I developed this 
 ## Endpoints
 The app serves 7 endpoints besides index:
 ### Github repository managing endpoints:
-- /add-repository/<profile_name>/<repository_name>
-Make a POST request to track a new repository
-- /get-repositories
-Make a GET request to get a list of tracked repositories
-- /delete-repository/<profile_name>/<repository_name>
-Make a DELETE request to stop tracking a repository
+- /add-repository/<profile_name>/<repository_name> <br/>
+Make a POST request to track a new repository <br/>
+- /get-repositories <br/>
+Make a GET request to get a list of tracked repositories <br/>
+- /delete-repository/<profile_name>/<repository_name> <br/>
+Make a DELETE request to stop tracking a repository <br/>
 ### Data processing endpoints:
-- /get-event-times
-Make a GET request to get the average time between consecutive events, separately for each combination of event type and repository name
-- /get-events-by-offset/<minutes>
-Make a GET request to get the total number of events grouped by the event type and repository name for a given offset. Offset is set in minutes
+- /get-event-times <br/>
+Make a GET request to get the average time between consecutive events, separately for each combination of event type and repository name <br/>
+- /get-events-by-offset/<minutes> <br/>
+Make a GET request to get the total number of events grouped by the event type and repository name for a given offset. Offset is set in minutes <br/>
 ### Visualization endpoint:
-- /visual-events-by-offset/<minutes>
-Make a GET request to see the visualization of total number of events grouped by the event type and repository name for a given offset. Offset is set in minutes
+- /visual-events-by-offset/<minutes> <br/>
+Make a GET request to see the visualization of total number of events grouped by the event type and repository name for a given offset. Offset is set in minutes <br/>
 ### Endpoint to deliver authentication token
-- /send-token
-Make a POST request that includes "Authorization: YOUR-TOKEN" in header to authenticate in order to get higher rate limit for requests per hour
+- /send-token <br/>
+Make a POST request that includes "Authorization: YOUR-TOKEN" in header to authenticate in order to get higher rate limit for requests per hour <br/>
 
 ## Example usage
 To track a new repository called project-based-learning by user practical-tutorials, make the following POST request: 
